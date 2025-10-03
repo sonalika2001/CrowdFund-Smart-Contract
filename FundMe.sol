@@ -11,6 +11,8 @@ pragma solidity ^0.8.24;
 import {AggregatorV3Interface} from "@chainlink/contracts@1.4.0/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {PriceConverter} from "./PriceConverter.sol";
 
+error NotOwner(); //this is outside the contract(so again gas cost not included in deployment), custom error declared here
+
 contract FundMe {
 
     //to attach the functions in our PriceConverter library to all uint256 vars
@@ -28,13 +30,13 @@ contract FundMe {
     //so when it is deployed, we need to save the address of the account deploying it
     //hence, we need a constructor - this is immediately called whenever you deploy your contract
     //ie it is called in the exact same transaction which is used to deploy your contract
-    address owner;
+    address immutable i_owner;
     constructor(){
-        owner = msg.sender; //address of the deployer of the contract
+        i_owner = msg.sender; //address of the deployer of the contract
 
     }
-
-    uint256 public minAmtInUSD = 5e18; //since getconversionrate returns with 18 extra decimal places
+    //value known at compile time and it wont change, hence constant. saves gas
+    uint256 public constant MINIMUM_USD = 5e18; //since getconversionrate returns with 18 extra decimal places
     function fund() public payable{
         //Allow users to send money
         //set a min limit on the amount to be sent
@@ -50,7 +52,7 @@ contract FundMe {
         
         //greater than > 5 usd
         //msg.value.getConversionRate() works because we have attached the library to all uint256
-        require(msg.value.getConversionRate()>minAmtInUSD, "didn't send enough eth");
+        require(msg.value.getConversionRate()>MINIMUM_USD, "didn't send enough eth");
         //if >5, then maintain list of funders
         funders.push(msg.sender); //msg.sender is a global variable that stores the address of the sender of the transaction
         addressToAmtFunded[msg.sender]+=msg.value;
@@ -93,7 +95,11 @@ contract FundMe {
     //we could also do _; and then require.. to execute the function code first and then the modifier stuff
     //useful if something needs to be checked in multiple funcs
     modifier onlyOwner {
-        require(msg.sender==owner,"Only owner can access.");
+        if (msg.sender!=i_owner){
+            revert NotOwner(); //this saves a lot of gas compared to the commented out line, since we dont have to
+            //store and emit the error string
+        }
+        // require(msg.sender==i_owner,"Only owner can access.");
         _; //this means that after executing the above line, execute everything else in the function now
 
     }    
