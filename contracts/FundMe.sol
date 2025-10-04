@@ -102,5 +102,12 @@ contract FundMe {
         // require(msg.sender==i_owner,"Only owner can access.");
         _; //this means that after executing the above line, execute everything else in the function now
 
-    }    
+    }   
+
+    receive() external payable {
+        fund();
+    } 
+    fallback() external payable {
+        fund();
+    }
 }
